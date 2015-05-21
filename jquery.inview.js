@@ -5,11 +5,18 @@
  */
 (function ($) {
   var inviewObjects = {}, viewportSize, viewportOffset,
-      d = document, w = window, documentElement = d.documentElement, expando = $.expando, timer;
+      d = document,
+      w = window,
+      $w = $(window),
+      $expando = $.expando,
+      documentElement = d.documentElement,
+      currentViewportOffsetTop,
+      currentViewportSizeHeight,
+      timer;
 
   $.event.special.inview = {
     add: function(data) {
-      inviewObjects[data.guid + "-" + this[expando]] = { data: data, $element: $(this) };
+      inviewObjects[data.guid + "-" + this[$expando]] = { data: data, $element: $(this) };
 
       // Use setInterval in order to also make sure this captures elements within
       // "overflow:scroll" elements or elements that appeared in the dom tree due to
@@ -22,12 +29,12 @@
       // Don't waste cycles with an interval until we get at least one element that
       // has bound to the inview event.
       if (!timer && !$.isEmptyObject(inviewObjects)) {
-         timer = setInterval(checkInView, 250);
+         timer = setInterval(checkInView, 100);
       }
     },
 
     remove: function(data) {
-      try { delete inviewObjects[data.guid + "-" + this[expando]]; } catch(e) {}
+      try { delete inviewObjects[data.guid + "-" + this[$expando]]; } catch(e) {}
 
       // Clear interval when we no longer have any elements listening
       if ($.isEmptyObject(inviewObjects)) {
@@ -66,12 +73,25 @@
   }
 
   function checkInView() {
-    var $elements = [], elementsLength, i = 0;
+
+    var $elements = $(),
+    elementsLength, i = 0,
+    viewportOffset = getViewportOffset(),
+    viewportSize = getViewportSize();
+
+    // don't proceed if the scroll position and height hasn't changed
+    if(currentViewportOffsetTop === viewportOffset.top && currentViewportOffsetHeight === viewportSize.height) {
+      return;
+    }
+
+    // set the new current offset top and height
+    currentViewportOffsetTop = viewportOffset.top;
+    currentViewportOffsetHeight = viewportSize.height;
 
     $.each(inviewObjects, function(i, inviewObject) {
       var selector  = inviewObject.data.selector,
           $element  = inviewObject.$element;
-      $elements.push(selector ? $element.find(selector) : $element);
+      $elements = $elements.add(selector ? $element.find(selector) : $element);
     });
 
     elementsLength = $elements.length;
@@ -81,7 +101,7 @@
 
       for (; i<elementsLength; i++) {
         // Ignore elements that are not in the DOM tree
-        if (!$.contains(documentElement, $elements[i][0])) {
+        if (!$.contains(documentElement, $elements[i])) {
           continue;
         }
 
@@ -123,7 +143,7 @@
     }
   }
 
-  $(w).bind("scroll resize scrollstop", function() {
+  $(w).bind("scroll resize", function() {
     viewportSize = viewportOffset = null;
   });
 
